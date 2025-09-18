@@ -1,0 +1,30 @@
+# Ignora le cartelle dei dataset e i file di grandi dimensioni
+dataset/
+dataset2/
+dataset_final/
+dataset_v2_preview/
+dataset_v3/
+dataset_v4/
+dataset_v5/
+dataset_v6/
+prev/
+*.zip
+*.png
+*.jpg
+
+# Ignora i file di cache di Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignora i file dell'ambiente virtuale
+.env
+.venv
+env/
+venv/
+ENV/
+VENV/
+
+# Ignora i file di configurazione di VSCode
+.vscode/

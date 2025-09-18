@@ -1,0 +1,17 @@
+# CONFIGURAZIONE SEGMENTAZIONE (da Pixel Click)
+# Ultimo aggiornamento: 20250912_175525
+# Sostituisci SEGMENTATION_CATEGORIES in generate.py
+
+SEGMENTATION_CATEGORIES = {
+    'sky': [115, 164, 170],
+    'trees': [36, 73, 84, 85, 87, 88, 89, 92, 93, 94, 95, 96, 97, 98, 99, 101, 102, 103, 106, 109, 111, 113, 118, 119, 122, 138, 139, 143, 145, 148, 149, 151, 155, 160, 161, 178, 180, 181, 182, 188, 211, 212],
+    'buildings': [46, 60, 64, 67, 71, 76, 77, 126, 171, 183, 184, 191, 197, 205, 223],
+    'ground': [18, 107, 117, 130, 150, 157, 165, 187, 214],
+    'unknown': [114],
+    'obstacles': [36, 46, 60, 64, 67, 71, 73, 76, 77, 84, 85, 87, 88, 89, 92, 93, 94, 95, 96, 97, 98, 99, 101, 102, 103, 106, 109, 111, 113, 118, 119, 122, 126, 138, 139, 143, 145, 148, 149, 151, 155, 160, 161, 171, 178, 180, 181, 182, 183, 184, 188, 191, 197, 205, 211, 212, 223],
+}
+
+# ISTRUZIONI:
+# 1. Copia tutto SEGMENTATION_CATEGORIES
+# 2. Incolla in ../generate.py (linea ~18)
+# 3. Testa: cd .. && python generate.py

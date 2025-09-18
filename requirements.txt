@@ -1,0 +1,5 @@
+airsim
+numpy
+pillow
+opencv-python
+scikit-learn

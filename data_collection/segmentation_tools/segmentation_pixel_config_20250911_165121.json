@@ -1,0 +1,72 @@
+{
+  "timestamp": "20250911_165121",
+  "image_info": {
+    "width": 224,
+    "height": 224,
+    "unique_values": 26
+  },
+  "categories": {
+    "sky": [
+      126,
+      151,
+      165,
+      170
+    ],
+    "trees": [
+      36,
+      71,
+      73,
+      77,
+      145,
+      184,
+      188
+    ],
+    "buildings": [
+      64,
+      139
+    ],
+    "ground": [
+      115,
+      117,
+      130,
+      150,
+      157,
+      191,
+      205
+    ],
+    "obstacles": [
+      36,
+      64,
+      71,
+      73,
+      77,
+      139,
+      145,
+      184,
+      188
+    ]
+  },
+  "total_categorized": 29,
+  "pixel_coordinates": {
+    "115": "ground",
+    "117": "ground",
+    "73": "trees",
+    "77": "trees",
+    "165": "sky",
+    "205": "ground",
+    "126": "sky",
+    "64": "buildings",
+    "139": "buildings",
+    "150": "ground",
+    "184": "trees",
+    "188": "trees",
+    "71": "trees",
+    "145": "trees",
+    "151": "sky",
+    "36": "trees",
+    "170": "sky",
+    "191": "ground",
+    "130": "ground",
+    "157": "ground"
+  }
+}
