@@ -9,8 +9,6 @@ dataset_v5/
 dataset_v6/
 prev/
 *.zip
-*.png
-*.jpg
 
 # Ignora i file di cache di Python
 __pycache__/
