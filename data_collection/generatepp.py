@@ -5,12 +5,15 @@ import os
 import random
 from PIL import Image
 import time
+import csv
+import argparse # Aggiunto per gli argomenti da riga di comando
 
 # --- CONFIGURAZIONE PRINCIPALE ---
 # !!! MODIFICA QUESTO VALORE PER OGNI AMBIENTE !!!
-ENV_ID = 0
+ENV_ID = 4
+ENVIRONMENT_NAME = "AirsimNH" # !!! MODIFICA QUESTO VALORE CON IL NOME DELL'AMBIENTE !!!
 
-DATASET_PATH = "../dataset_try"
+DATASET_PATH = "../dataset_plus"
 NUM_ANCHORS_PER_RUN = 2500
 CAPTURE_INTERVAL = 1.0 # Scatta una foto ogni secondo
 
@@ -19,7 +22,7 @@ IMAGE_HEIGHT = 144
 BACKGROUNDS_PATH = "../backgrounds"
 
 # --- CONFIGURAZIONE MOVIMENTO ---
-MAX_HORIZONTAL_SPEED = 5.0 # Aumentata per viaggi più rapidi
+MAX_HORIZONTAL_SPEED = 3.0
 MAX_VERTICAL_SPEED = 1.0
 TAKEOFF_ALTITUDE = -10 # Altitudine minima (negativa = verso l'alto)
 MAX_ALTITUDE = -40   # Altitudine massima
@@ -103,8 +106,61 @@ def apply_background(scene_img, obstacle_mask, background_path):
     mask = Image.fromarray(obstacle_mask)
     return Image.composite(scene, background, mask)
 
+def get_environment_name(client):
+    """Estrae il nome della scena corrente in modo robusto."""
+    try:
+        # Prova a ottenere il nome dell'ambiente direttamente dalle impostazioni
+        # Questo è spesso il metodo più affidabile
+        settings_str = client.simGetSettingsString()
+        if settings_str:
+            # Cerca una corrispondenza per "LevelName" o simili
+            # Questo è un approccio euristico e potrebbe necessitare di aggiustamenti
+            import re
+            match = re.search(r'"LevelName"\s*:\s*"([^"]+)"', settings_str)
+            if match:
+                level_path = match.group(1)
+                # Estrai solo il nome del file, senza percorso o estensione
+                level_name = os.path.basename(level_path).split('.')[0]
+                if level_name:
+                    return level_name
+
+        # Fallback: prova con getSceneString(), che a volte funziona
+        scene_name = client.getSceneString()
+        if scene_name:
+            return scene_name
+            
+    except Exception as e:
+        print(f"Non è stato possibile determinare il nome dell'ambiente in modo dinamico: {e}")
+    
+    # Se tutti i tentativi falliscono, ritorna un valore di default
+    # per garantire la coerenza dei dati.
+    return "DefaultEnv"
+
+def get_privileged_data(client):
+    """Recupera dati privilegiati sullo stato del drone."""
+    state = client.getMultirotorState()
+    pos = state.kinematics_estimated.position
+    orientation = state.kinematics_estimated.orientation
+    linear_velocity = state.kinematics_estimated.linear_velocity
+    angular_velocity = state.kinematics_estimated.angular_velocity
+    collision = state.collision.has_collided
+
+    return [
+        pos.x_val, pos.y_val, pos.z_val,
+        orientation.w_val, orientation.x_val, orientation.y_val, orientation.z_val,
+        linear_velocity.x_val, linear_velocity.y_val, linear_velocity.z_val,
+        angular_velocity.x_val, angular_velocity.y_val, angular_velocity.z_val,
+        collision
+    ]
+
 # --- Logica Principale ---
 def main():
+    # --- Parsing degli argomenti da riga di comando ---
+    parser = argparse.ArgumentParser(description="Raccoglie dati di training da AirSim.")
+    parser.add_argument("--env_name", type=str, default=None,
+                        help="Forza un nome specifico per l'ambiente.")
+    args = parser.parse_args()
+
     # Setup
     print("Abilitazione controllo API e decollo...")
     client.enableApiControl(True)
@@ -114,6 +170,8 @@ def main():
     time.sleep(1)
 
     sky_id, ground_id = calibrate_environment()
+    
+    env_name = ENVIRONMENT_NAME
 
     # Preparazione sfondi
     all_bgs = [os.path.join(BACKGROUNDS_PATH, f) for f in os.listdir(BACKGROUNDS_PATH) if f.endswith(('.png', '.jpg'))]
@@ -126,64 +184,75 @@ def main():
 
     os.makedirs(DATASET_PATH, exist_ok=True)
     
+    # --- Setup del file CSV per i dati privilegiati ---
+    CSV_PATH = os.path.join(DATASET_PATH, "privileged_data.csv")
+    csv_header = [
+        "anchor_id", "env_name",
+        "pos_x", "pos_y", "pos_z",
+        "q_w", "q_x", "q_y", "q_z",
+        "vel_x", "vel_y", "vel_z",
+        "ang_vel_x", "ang_vel_y", "ang_vel_z",
+        "has_collided"
+    ]
+    
+    file_exists = os.path.isfile(CSV_PATH)
+    csv_file = open(CSV_PATH, 'a', newline='')
+    csv_writer = csv.writer(csv_file)
+    
+    if not file_exists:
+        csv_writer.writerow(csv_header)
+        print(f"Creato file CSV per dati privilegiati in: {CSV_PATH}")
+
     start_anchor_index = ENV_ID * NUM_ANCHORS_PER_RUN
     total_duration = NUM_ANCHORS_PER_RUN * CAPTURE_INTERVAL
     
     print(f"Inizio raccolta dati per l'ambiente {ENV_ID} per circa {total_duration} secondi.")
     print(f"Verranno generate {NUM_ANCHORS_PER_RUN} ancore, da indice {start_anchor_index}.")
 
-    movement_future = None
-    last_destination_time = 0
-    DESTINATION_CHANGE_INTERVAL = 15 # secondi prima di cambiare destinazione
-
-    anchor_count = 0
+    start_time = time.time()
     last_capture_time = 0
+    anchor_count = 0
 
     # Loop di movimento e cattura
     while anchor_count < NUM_ANCHORS_PER_RUN:
-        current_time = time.time()
+        # Controllo altitudine e impostazione velocità verticale
+        current_pos = client.getMultirotorState().kinematics_estimated.position
+        vz = random.uniform(-MAX_VERTICAL_SPEED, MAX_VERTICAL_SPEED)
+        if current_pos.z_val < MAX_ALTITUDE: # Troppo alto (z è più negativo)
+            vz = abs(vz) # Forza la discesa
+        elif current_pos.z_val > TAKEOFF_ALTITUDE: # Troppo basso
+            vz = -abs(vz) # Forza la salita
 
-        # 1. Gestione Movimento: Scegli una nuova destinazione se necessario
-        if movement_future is None or (current_time - last_destination_time) > DESTINATION_CHANGE_INTERVAL:
-            if movement_future:
-                client.cancelLastTask() # Annulla il movimento precedente se non è ancora finito
-                print("Timeout destinazione, scelgo un nuovo punto...")
+        # Imposta velocità orizzontale e muovi
+        vx = random.uniform(-MAX_HORIZONTAL_SPEED, MAX_HORIZONTAL_SPEED)
+        vy = random.uniform(-MAX_HORIZONTAL_SPEED, MAX_HORIZONTAL_SPEED)
+        client.moveByVelocityAsync(vx, vy, vz, duration=0.5).join()
 
-            current_pos = client.getMultirotorState().kinematics_estimated.position
-            
-            # Scegli una destinazione casuale in un raggio di 50-100 metri
-            radius = random.uniform(50, 100)
-            angle = random.uniform(0, 2 * np.pi)
-            target_x = current_pos.x_val + radius * np.cos(angle)
-            target_y = current_pos.y_val + radius * np.sin(angle)
-            
-            # Scegli un'altitudine casuale nel range consentito
-            target_z = random.uniform(TAKEOFF_ALTITUDE, MAX_ALTITUDE)
-
-            print(f"Nuova destinazione: (X={target_x:.1f}, Y={target_y:.1f}, Z={target_z:.1f})")
-            movement_future = client.moveToPositionAsync(target_x, target_y, target_z, MAX_HORIZONTAL_SPEED)
-            last_destination_time = current_time
-            time.sleep(0.1) # Piccola pausa per far iniziare il movimento
-
-        # 2. Cattura a intervalli regolari durante il volo
-        if (current_time - last_capture_time) >= CAPTURE_INTERVAL:
-            last_capture_time = current_time
+        # Cattura a intervalli
+        if (time.time() - last_capture_time) >= CAPTURE_INTERVAL:
+            last_capture_time = time.time()
             current_anchor_index = start_anchor_index + anchor_count
             
             print(f"\n--- Cattura Ancora {anchor_count + 1}/{NUM_ANCHORS_PER_RUN} (Indice: {current_anchor_index}) ---")
             
+            # Recupera immagini e dati privilegiati
             anchor_img, seg_mask = get_synchronized_images()
+            privileged_data = get_privileged_data(client)
+
             if anchor_img is None or seg_mask is None:
                 print("Immagine non valida, salto.")
                 continue
+
+            # Scrivi i dati privilegiati nel CSV
+            csv_writer.writerow([current_anchor_index, env_name] + privileged_data)
 
             anchor_folder = os.path.join(DATASET_PATH, f"anchor_{current_anchor_index:06d}")
             os.makedirs(anchor_folder, exist_ok=True)
             Image.fromarray(anchor_img).save(os.path.join(anchor_folder, "anchor.png"))
 
             obstacle_mask = create_obstacle_mask(seg_mask, sky_id, ground_id)
-            if obstacle_mask is None or np.all(obstacle_mask == 0):
-                print("Maschera non valida o vuota, salto.")
+            if obstacle_mask is None:
+                print("Maschera non valida, salto.")
                 continue
 
             # Genera positivi
@@ -197,10 +266,9 @@ def main():
 
             print(f"Ancora salvata in {anchor_folder}")
             anchor_count += 1
-        
-        time.sleep(0.1) # Loop check per non sovraccaricare la CPU
     
     # Fine
+    csv_file.close() # Chiudi il file CSV
     print("\nGenerazione completata. Atterraggio...")
     client.hoverAsync().join()
     client.landAsync().join()

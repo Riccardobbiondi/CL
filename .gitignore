@@ -7,8 +7,11 @@ dataset_v3/
 dataset_v4/
 dataset_v5/
 dataset_v6/
+dataset_wm_final/
+dataset_plus/
 prev/
 *.zip
+similarity_matrix.csv
 
 # Ignora i file di cache di Python
 __pycache__/
