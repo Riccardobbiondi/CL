@@ -3,3 +3,8 @@ numpy
 pillow
 opencv-python
 scikit-learn
+tqdm
+pandas
+matplotlib
+torch
+torchvision
