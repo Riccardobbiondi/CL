@@ -43,7 +43,8 @@ def SA(row1, row2, Wp, Wv, Wpos, Wrot):
     if norm_q2 > 0: q2 /= norm_q2
     
     dot_product = np.abs(np.dot(q1, q2))
-    rot_similarity = np.clip(dot_product, 0.0, 1.0)
+    rot_s = (1-np.clip(dot_product, 0.0, 1) )* 10
+    rot_similarity = 1-rot_s
 
     # --- 4. Calcolo del punteggio finale (SA) ---
     expected_similarity = (pos_similarity * Wpos) + (rot_similarity * Wrot)
@@ -52,10 +53,10 @@ def SA(row1, row2, Wp, Wv, Wpos, Wrot):
 
 if __name__ == '__main__':
     # --- 1. Impostazione degli iperparametri ---
-    Wp = 0.25      # Sensibilità alla distanza
-    Wv = 0.75      # Tolleranza alla velocità
-    Wpos = 0.6    # Peso posizione
-    Wrot = 0.4    # Peso rotazione
+    Wp = 0.5      # Sensibilità alla distanza
+    Wv = 1      # Tolleranza alla velocità
+    Wpos = 0.5    # Peso posizione
+    Wrot = 0.5    # Peso rotazione
 
     print("--- Inizio Calcolo Matrice di Similarità ---")
     

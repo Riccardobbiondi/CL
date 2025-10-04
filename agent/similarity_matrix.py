@@ -71,17 +71,17 @@ if __name__ == '__main__':
     # --- 1. Impostazione degli iperparametri ---
     Wp = 0.25      # Sensibilità alla distanza
     Wv = 0.75      # Tolleranza alla velocità
-    Wpos = 0.6    # Peso posizione
-    Wrot = 0.4    # Peso rotazione
+    Wpos = 0.5    # Peso posizione
+    Wrot = 0.5    # Peso rotazione
 
     print("--- Inizio Calcolo Matrice di Similarità (Versione Ottimizzata) ---")
     start_time = time.time()
     
     # --- 2. Caricamento dei dati ---
     try:
-        df = pd.read_csv("../data_collection/prova.csv")
+        df = pd.read_csv("../dataset_plus\privileged_data.csv")
     except FileNotFoundError:
-        print("Errore: File '../data_collection/prova.csv' non trovato.")
+        print("Errore: File '../dataset_plus/privileged_data.csv' non trovato.")
         exit()
 
     # --- 3. Calcolo della matrice ---
@@ -91,7 +91,7 @@ if __name__ == '__main__':
     print(f"Calcolo completato in {calculation_time:.2f} secondi.")
 
     # --- 4. Salvataggio della matrice ---
-    output_filename = 'prova_similarity_matrix.csv'
+    output_filename = 'similarity_matrix.csv'
     matrix_df.to_csv(output_filename, index=True, header=True, float_format='%.4f')
 
     print(f"Matrice di similarità salvata con successo in '{output_filename}'.")

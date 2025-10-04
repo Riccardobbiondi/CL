@@ -10,6 +10,7 @@ dataset_v6/
 dataset_wm_final/
 dataset_plus/
 prev/
+CLEncoderRobotNav/experiments/
 *.zip
 similarity_matrix.csv
 
